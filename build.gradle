@@ -1,0 +1,33 @@
+version = '0.9'
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.4'
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+ 
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.jfree:jfreesvg:3.4'
+    implementation 'com.googlecode.lanterna:lanterna:3.0.1'
+    implementation 'com.beust:jcommander:1.78'
+}
+
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'CNotation2SVG',
+                   'Implementation-Version': version,
+                   'Main-Class': 'org.rooi.cnotation2svg.CNotation2SVG'
+    }
+}
+
