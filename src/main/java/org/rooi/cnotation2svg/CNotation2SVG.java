@@ -161,6 +161,7 @@ public class CNotation2SVG
          
          super.draw(dx, dy, g2);
          String s = String.format("%c", c);
+         System.out.println("Note.draw() " + s + " " + (dx + getX()) + " " + (dy + getY()));
          g2.drawString(s, dx + getX(), dy + getY() + ascent);
          if (hasBorder())
          {
@@ -173,6 +174,11 @@ public class CNotation2SVG
    {
       protected ArrayList<SElement> list;
       
+      public Group()
+      {
+         list = new ArrayList<SElement>();
+      }
+
       public Group(int xx, int yy)
       {
          super(xx, yy);
@@ -193,6 +199,7 @@ public class CNotation2SVG
          }
 
          // sum all the widths
+         // and this value as the global width
          int ww = 0;
          for (SElement el: list)
          {
@@ -200,6 +207,8 @@ public class CNotation2SVG
          }
          setW(ww);
 
+         // search the highest child element and
+         // take it's height as the global height
          int hh = 0;
          for (SElement el: list)
          {
@@ -209,6 +218,16 @@ public class CNotation2SVG
             }
          }
          setH(hh);
+         
+         // align all child elements at the lower boundary
+         for (SElement el: list)
+         {
+            if (el.getH() < hh)
+            {
+               int dy = hh - el.getH();
+               el.setY(el.getY() + dy);
+            }
+         }
       }
 
       @Override 
@@ -221,11 +240,13 @@ public class CNotation2SVG
             el.calcLayout(g);
          }
 
+         System.out.println("Group.calcLayout()");
          // position all the child elements
          int xx = 0;
          int yy = 0;
          for (SElement el: list)
          {
+            System.out.println("Group.calcLayout() xx " + xx);
             el.setX(xx);
             xx += el.getW();
          }
@@ -238,10 +259,12 @@ public class CNotation2SVG
       {
          Graphics2D g2 = (Graphics2D) g;
          
+         System.out.println("Group.draw() " + (dx + getX()) + " " + (dy + getY()));
+
          super.draw(dx, dy, g2);
          for (SElement el: list)
          {
-            el.draw(dx, dy, g2);
+            el.draw(dx + getX(), dy + getY(), g2);
          }
       }
    }
@@ -284,6 +307,8 @@ public class CNotation2SVG
       {
          Graphics2D g2 = (Graphics2D) g;
          
+         System.out.println("Line.draw() " + (dx + getX()) + " " + (dy + getY()));
+
          super.draw(dx, dy, g2);
          g2.drawLine(dx + getX(), dy + getY() + hline/2, dx + getX() + getW(), dy + getY() + hline/2);
       }
@@ -337,11 +362,17 @@ public class CNotation2SVG
    
    public Score makeDemo()
    {
-    	Note no1 = new Note('c');
-    	Note no2 = new Note('c');
-      Line gr = new Line(0, 0);
-      gr.add(no1);
-      gr.add(no2);
+    	Note no1 = new Note('a');
+    	Note no2 = new Note('b');
+    	Note no3 = new Note('c');
+    	Note no4 = new Note('d');
+      Line li = new Line(0, 0);
+      li.add(no1);
+      li.add(no2);
+      Group gr = new Group();
+      gr.add(no3);
+      gr.add(li);
+      gr.add(no4);
     	Score sc = new Score(gr);
     	return sc;
    }
