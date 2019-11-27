@@ -5,8 +5,13 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.Stroke;
+import java.awt.BasicStroke;
 import java.awt.font.FontRenderContext;
 import java.awt.font.LineMetrics;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import javax.swing.JFrame;
@@ -19,7 +24,10 @@ public class CNotation2SVG
 {
    static public class Config
    {
-      static public final boolean withborder = false; 
+      static public final boolean withborder = true; 
+      static public final int     ptsize     = 100;  // size of font in pt
+      static public final float   linestroke = 0.05f * ptsize;
+      static public final int     lineheight = (int)(0.25 * ptsize);
    }
 
    static public abstract class SElement
@@ -167,7 +175,7 @@ public class CNotation2SVG
 
          System.out.println("Note.calcLayout()");
          
-         Font font = new Font("Serif", Font.PLAIN, 100);
+         Font font = new Font("Serif", Font.PLAIN, Config.ptsize);
          g2.setFont(font);
          
          FontRenderContext frc = g2.getFontRenderContext();
@@ -190,7 +198,7 @@ public class CNotation2SVG
       {
          Graphics2D g2 = (Graphics2D) g;
 
-         Font font = new Font("Serif", Font.PLAIN, 100);
+         Font font = new Font("Serif", Font.PLAIN, Config.ptsize);
          g2.setFont(font);
          
          super.draw(dx, dy, g2);
@@ -325,8 +333,13 @@ public class CNotation2SVG
 
    static public class Line extends SElement
    {
-      static final int hline = 50; // height of the line section
+      static final int hline = Config.lineheight; // height of the line section
       private Group    root;
+
+      public Line()
+      {
+         root = new Group();
+      }
 
       public Line(int xx, int yy)
       {
@@ -379,10 +392,15 @@ public class CNotation2SVG
          System.out.println("Line.draw() " + (dx + getX()) + " " + (dy + getY()));
 
          super.draw(dx, dy, g2);
+
+         Stroke bstr = g2.getStroke();
+         Stroke str = new BasicStroke(Config.linestroke);
+         g2.setStroke(str);
          
          System.out.println("   line fr " + (dx + getX()) + " " + (dy + getY() + hline/2) );
          System.out.println("   line to " + (dx + getX() + getW()) + " " + (dy + getY() + hline/2) );
          g2.drawLine(dx + getX(), dy + getY() + hline/2, dx + getX() + getW(), dy + getY() + hline/2);
+         g2.setStroke(bstr);
          
          root.draw(dx + getX(), dy + getY(), g);
       }
@@ -444,17 +462,21 @@ public class CNotation2SVG
    
    public Score makeDemo()
    {
-    	Note no1 = new Note('a');
-    	Note no2 = new Note('b');
-    	Note no3 = new Note('c');
-    	Note no4 = new Note('d');
-      Line li = new Line(0, 0);
-      li.add(no1);
-      li.add(no2);
       Group gr = new Group();
-      gr.add(no3);
+      gr.add(new Note('c'));
+
+      Line li = new Line();
+      li.add(new Note('a'));
+      li.add(new Note('b'));
       gr.add(li);
-      gr.add(no4);
+
+      gr.add(new Note('d'));
+
+      Line li2 = new Line();
+      li2.add(new Note('e'));
+      li2.add(new Note('f'));
+      gr.add(li2);
+
     	Score sc = new Score(gr);
     	return sc;
    }
@@ -483,6 +505,16 @@ public class CNotation2SVG
       sc.draw(gg2);
       String svgElement = gg2.getSVGElement();
       System.out.println(svgElement);
+
+      try
+      {
+         BufferedWriter writer = new BufferedWriter(new FileWriter("test.svg"));
+         writer.write(svgElement);
+         writer.close();
+      }
+      catch (IOException e)
+      {
+      }
    }   
    
    public static void svgdemo()
