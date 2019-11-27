@@ -29,10 +29,12 @@ public class CNotation2SVG
       private int     w;
       private int     h;
       private boolean border;
+      private boolean lok;
 
       public SElement()
       {
          border = Config.withborder;
+         lok    = false;
          x = 0;
          y = 0;
          w = 0;
@@ -42,6 +44,7 @@ public class CNotation2SVG
       public SElement(int xx, int yy)
       {
          border = Config.withborder;
+         lok    = false;
          x = xx;
          y = yy;
          w = 0;
@@ -93,6 +96,26 @@ public class CNotation2SVG
          return border;
       }
 
+      public boolean isLok()
+      {
+         return lok;
+      }
+
+      public void setLok(boolean lk)
+      {
+         lok = lk;
+      }
+
+      public void clearLok()
+      {
+         border = Config.withborder;
+         lok    = false;
+         x = 0;
+         y = 0;
+         w = 0;
+         h = 0;
+      }
+
       abstract protected void calcWH();
       abstract public void calcLayout(Graphics g);
       
@@ -134,7 +157,15 @@ public class CNotation2SVG
       @Override 
       public void calcLayout(Graphics g)
       {
+         if (isLok())
+         {
+            return;
+         }
+         setLok(true);
+         
          Graphics2D g2 = (Graphics2D) g;
+
+         System.out.println("Note.calcLayout()");
          
          Font font = new Font("Serif", Font.PLAIN, 100);
          g2.setFont(font);
@@ -158,6 +189,9 @@ public class CNotation2SVG
       public void draw(int dx, int dy, Graphics g)
       {
          Graphics2D g2 = (Graphics2D) g;
+
+         Font font = new Font("Serif", Font.PLAIN, 100);
+         g2.setFont(font);
          
          super.draw(dx, dy, g2);
          String s = String.format("%c", c);
@@ -183,6 +217,16 @@ public class CNotation2SVG
       {
          super(xx, yy);
          list = new ArrayList<SElement>();
+      }
+
+      @Override
+      public void clearLok()
+      {
+         super.clearLok();
+         for (SElement el: list)
+         {
+            el.clearLok();
+         }
       }
 
       public void add(SElement el)
@@ -225,7 +269,10 @@ public class CNotation2SVG
             if (el.getH() < hh)
             {
                int dy = hh - el.getH();
+               System.out.println("dy " + dy);
+               System.out.println("y oud   " + el.getY());
                el.setY(el.getY() + dy);
+               System.out.println("y nieuw " + el.getY());
             }
          }
       }
@@ -233,14 +280,23 @@ public class CNotation2SVG
       @Override 
       public void calcLayout(Graphics g)
       {
+         if (isLok())
+         {
+            return;
+         }
+         setLok(true);
+
          Graphics2D g2 = (Graphics2D) g;
          
+         System.out.println("Group.calcLayout()");
+
          for (SElement el: list)
          {
             el.calcLayout(g);
          }
 
-         System.out.println("Group.calcLayout()");
+         calcWH();
+
          // position all the child elements
          int xx = 0;
          int yy = 0;
@@ -250,8 +306,6 @@ public class CNotation2SVG
             el.setX(xx);
             xx += el.getW();
          }
-         
-         calcWH();
       }
 
       @Override
@@ -269,37 +323,52 @@ public class CNotation2SVG
       }
    }
 
-   static public class Line extends Group
+   static public class Line extends SElement
    {
       static final int hline = 50; // height of the line section
+      private Group    root;
 
       public Line(int xx, int yy)
       {
          super(xx, yy);
+         
+         root = new Group();
+      }
+
+      @Override
+      public void clearLok()
+      {
+         super.clearLok();
+         root.clearLok();
+      }
+
+      public void add(SElement el)
+      {
+         root.add(el);
+      }
+
+      @Override
+      protected void calcWH()
+      {
+         root.calcWH();
+
+         setW(root.getW());
+         setH(hline + root.getH());
       }
 
       @Override 
       public void calcLayout(Graphics g)
       {
-         Graphics2D g2 = (Graphics2D) g;
-         
-         for (SElement el: list)
+         if (isLok())
          {
-            el.calcLayout(g);
+            return;
          }
-         
-         // position all the child elements
-         int xx = 0;
-         int yy = hline;
-         for (SElement el: list)
-         {
-            el.setX(xx);
-            xx += el.getW();
-            el.setY(yy);
-         }
-         
-         calcWH();
-         setH(hline + getH());
+         setLok(true);
+
+         System.out.println("Line.calcLayout()");
+
+         root.calcLayout(g);
+         root.setY(hline);
       }
 
       @Override
@@ -310,7 +379,12 @@ public class CNotation2SVG
          System.out.println("Line.draw() " + (dx + getX()) + " " + (dy + getY()));
 
          super.draw(dx, dy, g2);
+         
+         System.out.println("   line fr " + (dx + getX()) + " " + (dy + getY() + hline/2) );
+         System.out.println("   line to " + (dx + getX() + getW()) + " " + (dy + getY() + hline/2) );
          g2.drawLine(dx + getX(), dy + getY() + hline/2, dx + getX() + getW(), dy + getY() + hline/2);
+         
+         root.draw(dx + getX(), dy + getY(), g);
       }
    }
    
@@ -331,6 +405,14 @@ public class CNotation2SVG
       public int getH()
       {
          return root.getH();
+      }
+
+      public void clearLok()
+      {
+         if (root != null)
+         {
+            root.clearLok();
+         }
       }
 
       public void draw(Graphics g)
@@ -390,12 +472,14 @@ public class CNotation2SVG
     	frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     	frame.setResizable(false);		
 
-    	// export to SVG
+       // export to SVG
       SVGGraphics2D g2 = new SVGGraphics2D(600, 400);
+    	sc.clearLok();
       sc.draw(g2);
       
       // only now w and h are set
       SVGGraphics2D gg2 = new SVGGraphics2D(sc.getW(), sc.getH());
+    	sc.clearLok();
       sc.draw(gg2);
       String svgElement = gg2.getSVGElement();
       System.out.println(svgElement);
