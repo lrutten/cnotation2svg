@@ -30,6 +30,17 @@ public class CNotation2SVG
       static public final int     lineheight = (int)(0.25 * ptsize);
    }
 
+   static public class Indent
+   {
+      public static void indent(int d)
+      {
+         for (int i=0; i < d; i++)
+         {
+            System.out.print("  ");
+         }
+      }
+   }
+
    static public abstract class SElement
    {
       private int     x;
@@ -126,6 +137,7 @@ public class CNotation2SVG
 
       abstract protected void calcWH();
       abstract public void calcLayout(Graphics g);
+      abstract public void show(int d);
       
       public void draw(int dx, int dy, Graphics g)
       {
@@ -155,6 +167,13 @@ public class CNotation2SVG
       {
          super(xx, yy);
          c = cc;
+      }
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Note " + c);
       }
 
       @Override
@@ -225,6 +244,17 @@ public class CNotation2SVG
       {
          super(xx, yy);
          list = new ArrayList<SElement>();
+      }
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Group");
+         for (SElement el: list)
+         {
+            el.show(d + 1);
+         }
       }
 
       @Override
@@ -330,18 +360,17 @@ public class CNotation2SVG
          }
       }
    }
-
-   static public class Line extends SElement
+   
+   static public abstract class Container extends SElement
    {
-      static final int hline = Config.lineheight; // height of the line section
-      private Group    root;
+      protected Group    root;
 
-      public Line()
+      public Container()
       {
          root = new Group();
       }
 
-      public Line(int xx, int yy)
+      public Container(int xx, int yy)
       {
          super(xx, yy);
          
@@ -358,6 +387,60 @@ public class CNotation2SVG
       public void add(SElement el)
       {
          root.add(el);
+      }
+
+      @Override
+      protected void calcWH()
+      {
+         root.calcWH();
+
+         setW(root.getW());
+         setH(root.getH());
+      }
+
+      @Override 
+      public void calcLayout(Graphics g)
+      {
+         if (isLok())
+         {
+            return;
+         }
+         setLok(true);
+
+         root.calcLayout(g);
+      }
+
+      @Override
+      public void draw(int dx, int dy, Graphics g)
+      {
+         Graphics2D g2 = (Graphics2D) g;
+         
+         System.out.println("Container.draw() " + (dx + getX()) + " " + (dy + getY()));
+
+         super.draw(dx, dy, g2);
+         root.draw(dx + getX(), dy + getY(), g);
+      }
+   }
+   
+   static public class Line extends Container
+   {
+      static final int hline = Config.lineheight; // height of the line section
+
+      public Line()
+      {
+      }
+
+      public Line(int xx, int yy)
+      {
+         super(xx, yy);
+      }
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Line");
+         root.show(d + 1);
       }
 
       @Override
@@ -406,6 +489,21 @@ public class CNotation2SVG
       }
    }
    
+   static public class Bar extends Container
+   {
+      public Bar()
+      {
+      }
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Bar");
+         root.show(d + 1);
+      }
+   }
+
    static public class Score
    {
       private SElement root;
@@ -415,6 +513,13 @@ public class CNotation2SVG
          root = rt;
       }
       
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Root");
+         root.show(d + 1);
+      }
+
       public int getW()
       {
          return root.getW();
@@ -457,6 +562,130 @@ public class CNotation2SVG
     		score.draw(g);
     	}
    }
+   
+   
+   static public class ParseException extends Exception
+   {
+      private String text;
+      
+      public ParseException()
+      {
+         text = "";
+      }
+
+      public ParseException(String te)
+      {
+         text = te;
+      }
+      
+      public String toString()
+      {
+         return "ParseException " + text;
+      }
+   }
+   
+   static public class ParseText
+   {
+      private String text;
+      
+      public ParseText(String te)
+      {
+         text = te;
+      }
+      
+      public boolean empty()
+      {
+         return text.length() == 0;
+      }
+
+      public char get() throws ParseException
+      {
+         if (text.length() > 0)
+         {
+            return text.charAt(0);
+         }
+         else
+         {
+            throw new ParseException("at get");
+         }
+      }
+      
+      public void next() throws ParseException
+      {
+         if (text.length() > 0)
+         {
+            text = text.substring(1);
+         }
+         else
+         {
+            throw new ParseException("at next");
+         }
+      }
+      
+      public String toString()
+      {
+         return text;
+      }
+   }
+   
+   static public class Parser
+   {
+      public SElement parse_bar2(Container co, ParseText text) throws ParseException
+      {
+         System.out.println("Parse.parse_bar2() " + text);
+         if (!text.empty())
+         {
+            if (text.get() == '(')
+            {
+               Line line = new Line();
+               co.add(line);
+               text.next();
+               parse_bar2(line, text);
+               if (!text.empty())
+               {
+                  if (text.get() == ')')
+                  {
+                     text.next();
+                  }
+               }
+               else
+               {
+                  throw new ParseException("at ) expected");
+               }
+            }
+            else
+            if (text.get() == 'c')
+            {
+               while (!text.empty() && text.get() == 'c')
+               {
+                  Note nt = new Note(text.get());
+                  co.add(nt);
+                  text.next();
+                  parse_bar2(co, text);
+               }
+            }
+         }
+         else
+         {
+            //throw new ParseException();
+         }
+         return co;
+      }
+
+      public SElement parse_bar(ParseText text) throws ParseException
+      {
+         System.out.println("Parse.parse_bar() " + text);
+         Bar bar = new Bar();
+         parse_bar2(bar, text);
+         return bar;
+      }
+
+      public Score parse(String text) throws ParseException
+      {
+         System.out.println("Parse.parse() " + text);
+         return new Score(parse_bar(new ParseText(text)));
+      }
+   }
 
    JFrame frame;
    
@@ -481,11 +710,29 @@ public class CNotation2SVG
     	return sc;
    }
 
+   public Score makeScore(String te)
+   {
+      Parser parser = new Parser();
+      try
+      {
+         Score sc = parser.parse(te);
+         System.out.println("parse result " + sc);
+         sc.show(0);
+         return sc;
+      }
+      catch (ParseException e)
+      {
+         System.out.println("exception " + e);
+         return null;
+      }
+   }
+
    public void swingdemo()
    {
     	JFrame frame= new JFrame("Welcome to CNotation2SVG");
 
-    	Score sc = makeDemo();
+    	//Score sc = makeDemo();
+    	Score sc = makeScore("c((c)c)c");
     	
     	CNotationPanel panel = new CNotationPanel(sc);
     	frame.getContentPane().add(panel);
@@ -504,7 +751,7 @@ public class CNotation2SVG
     	sc.clearLok();
       sc.draw(gg2);
       String svgElement = gg2.getSVGElement();
-      System.out.println(svgElement);
+      //System.out.println(svgElement);
 
       try
       {
