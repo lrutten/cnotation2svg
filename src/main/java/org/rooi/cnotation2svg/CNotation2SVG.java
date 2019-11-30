@@ -25,10 +25,15 @@ public class CNotation2SVG
    static public class Config
    {
       static public final boolean withborder = false; 
-      static public final int     ptsize     = 100;  // size of font in pt
+      static public final int     ptsize     = 40;  // size of font in pt
       static public final float   linestroke = 0.05f * ptsize;
+      
+      // horizontal line
       static public final int     lineheight = (int)(0.25 * ptsize);
       static public final int     linemarge  = (int)(0.12 * ptsize);
+      
+      // barline
+      static public final int     barlinewidth = (int)(0.25 * ptsize);
    }
 
    static public class Indent
@@ -50,6 +55,7 @@ public class CNotation2SVG
       private int     y;
       private int     w;
       private int     h;
+      private boolean hasbaseline;
       private int     baseline;
       private boolean border;
       private boolean lok;  // is layout ok
@@ -65,7 +71,8 @@ public class CNotation2SVG
          y = 0;
          w = 0;
          h = 0;
-         baseline = 0;
+         baseline    = 0;
+         hasbaseline = true;
       }
 
       public SElement(int xx, int yy)
@@ -124,6 +131,11 @@ public class CNotation2SVG
       public void setH(int hh)
       {
          h = hh;
+      }
+
+      public boolean withBaseline()
+      {
+         return hasbaseline;
       }
 
       public int getBaseline()
@@ -280,6 +292,80 @@ public class CNotation2SVG
       }
    }
    
+   static public class Barline extends SElement
+   {
+      public Barline()
+      {
+      }
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Barline #" + getNr() + getX() + " " + getY() + " " + getBaseline());
+      }
+
+      @Override
+      public boolean withBaseline()
+      {
+         return false;
+      }
+
+      @Override
+      protected void calcWH(int d)
+      {
+         if (isWHok())
+         {
+            return;
+         }
+         setWHok(true);
+         
+         Indent.indent(d);
+         System.out.println("Barline.calcWH #" + getNr());
+      }
+      
+      @Override 
+      public void calcLayout(int d, Graphics g)
+      {
+         if (isLok())
+         {
+            return;
+         }
+         
+         Graphics2D g2 = (Graphics2D) g;
+
+         Indent.indent(d);
+         System.out.println("Barline.calcLayout() #" + getNr());
+         
+         setW(Config.barlinewidth);
+         //setH( ... );
+         
+         setLok(true);
+      }
+
+      @Override
+      public void draw(int dx, int dy, Graphics g)
+      {
+         Graphics2D g2 = (Graphics2D) g;
+         
+         //System.out.println("Barline.draw() " + (dx + getX()) + " " + (dy + getY()));
+
+         super.draw(dx, dy, g2);
+
+         Stroke bstr = g2.getStroke();
+         Stroke str = new BasicStroke(Config.linestroke);
+         g2.setStroke(str);
+         
+         //System.out.println("   line fr " + (dx + getX()) + " " + (dy + getY() + hline/2) );
+         //System.out.println("   line to " + (dx + getX() + getW()) + " " + (dy + getY() + hline/2) );
+         
+         // draw the vertical line
+         g2.drawLine(dx + getX() + getW()/2, dy + getY(), 
+                     dx + getX() + getW()/2, dy + getY() + getH());
+         g2.setStroke(bstr);
+      }
+   }
+   
    static public class Group extends SElement
    {
       protected ArrayList<SElement> list;
@@ -352,9 +438,12 @@ public class CNotation2SVG
          int hh = 0;
          for (SElement el: list)
          {
-            if (el.getH() > hh)
+            if (el.withBaseline())
             {
-               hh = el.getH();
+               if (el.getH() > hh)
+               {
+                  hh = el.getH();
+               }
             }
          }
          
@@ -365,9 +454,12 @@ public class CNotation2SVG
          int bsl = 0;
          for (SElement el: list)
          {
-            if (el.getBaseline() > bsl)
+            if (el.withBaseline())
             {
-               bsl = el.getBaseline();
+               if (el.getBaseline() > bsl)
+               {
+                  bsl = el.getBaseline();
+               }
             }
          }
          
@@ -378,16 +470,24 @@ public class CNotation2SVG
          // align all child elements at the calculated baseline
          for (SElement el: list)
          {
-            if (el.getBaseline() < getBaseline())
+            if (el.withBaseline())
             {
-               int dy = getBaseline() - el.getBaseline();
-               Indent.indent(d+1);
-               System.out.println("dy " + dy);
-               Indent.indent(d+1);
-               System.out.println("y oud   " + el.getY());
-               el.setY(el.getY() + dy);
-               Indent.indent(d+1);
-               System.out.println("y nieuw " + el.getY());
+               if (el.getBaseline() < getBaseline())
+               {
+                  int dy = getBaseline() - el.getBaseline();
+                  Indent.indent(d+1);
+                  System.out.println("dy " + dy);
+                  Indent.indent(d+1);
+                  System.out.println("y oud   " + el.getY());
+                  el.setY(el.getY() + dy);
+                  Indent.indent(d+1);
+                  System.out.println("y nieuw " + el.getY());
+               }
+            }
+            else
+            {
+               // this element has no baseline
+               el.setH(hh);
             }
          }
       }
@@ -608,7 +708,38 @@ public class CNotation2SVG
       }
    }
 
-   static public class Score
+   static public class Voice extends Container
+   {
+      public Voice()
+      {
+      }
+
+      @Override 
+      public void calcLayout(int d, Graphics g)
+      {
+         if (isLok())
+         {
+            return;
+         }
+         setLok(true);
+
+         Indent.indent(d);
+         System.out.println("Voice.calcLayout() #"  + getNr());
+
+         root.calcLayout(d + 1, g);
+      }
+
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("Voice #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline() + " " + getW() + "x" + getH());
+         root.show(d + 1);
+      }
+   }
+
+   static public class Score extends Container
    {
       private SElement root;
       
@@ -642,12 +773,29 @@ public class CNotation2SVG
          }
       }
 
+      @Override 
+      public void calcLayout(int d, Graphics g)
+      {
+         if (isLok())
+         {
+            return;
+         }
+         setLok(true);
+
+         Indent.indent(d);
+         System.out.println("Score.calcLayout() #"  + getNr());
+
+         root.calcLayout(d + 1, g);
+      }
+
+
       synchronized public void draw(Graphics g)
       {
          if (root != null)
          {
             System.out.println("----- Score.calcLayout() ----------");
-            root.calcLayout(0, g);
+            //root.calcLayout(0, g);
+            calcLayout(0, g);
             System.out.println("----- Score.calcLayout() end ----------");
             root.draw(0, 0, g);
             show(0);
@@ -793,10 +941,40 @@ public class CNotation2SVG
          return bar;
       }
 
+      public SElement parse_voice2(Container co, ParseText text) throws ParseException
+      {
+         System.out.println("Parse.parse_voice2() " + text);
+         if (!text.empty())
+         {
+            if (text.get() == '|')
+            {
+               Barline bline = new Barline();
+               co.add(bline);
+               text.next();
+               parse_voice2(co, text);
+            }
+            else
+            {
+               SElement el = parse_bar(text);
+               co.add(el);
+               parse_voice2(co, text);
+            }
+         }
+         return co;
+      }
+      
+      public SElement parse_voice(ParseText text) throws ParseException
+      {
+         System.out.println("Parse.parse_voice() " + text);
+         Voice voice = new Voice();
+         parse_voice2(voice, text);
+         return voice;
+      }
+      
       public Score parse(String text) throws ParseException
       {
          System.out.println("Parse.parse() " + text);
-         return new Score(parse_bar(new ParseText(text)));
+         return new Score(parse_voice(new ParseText(text)));
       }
    }
 
@@ -845,7 +1023,8 @@ public class CNotation2SVG
     	JFrame frame= new JFrame("Welcome to CNotation2SVG");
 
     	//Score sc = makeDemo();
-    	Score sc = makeScore("((cc)(cc))");
+    	String cccc = "|((cc)(cc))|cccc|";
+    	Score sc = makeScore(cccc);
     	
     	CNotationPanel panel = new CNotationPanel(sc);
     	frame.getContentPane().add(panel);
@@ -854,15 +1033,17 @@ public class CNotation2SVG
     	frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     	frame.setResizable(false);		
 
-       // export to SVG
+    	/*
+      // export to SVG
+    	Score sc2 = makeScore(cccc);
       SVGGraphics2D g2 = new SVGGraphics2D(600, 400);
-    	sc.clearLok();
-      sc.draw(g2);
+    	sc2.clearLok();
+      sc2.draw(g2);
       
       // only now w and h are set
-      SVGGraphics2D gg2 = new SVGGraphics2D(sc.getW(), sc.getH());
-    	sc.clearLok();
-      sc.draw(gg2);
+      SVGGraphics2D gg2 = new SVGGraphics2D(sc2.getW(), sc2.getH());
+    	sc2.clearLok();
+      sc2.draw(gg2);
       String svgElement = gg2.getSVGElement();
       //System.out.println(svgElement);
 
@@ -875,6 +1056,7 @@ public class CNotation2SVG
       catch (IOException e)
       {
       }
+       */
    }   
    
    public static void svgdemo()
