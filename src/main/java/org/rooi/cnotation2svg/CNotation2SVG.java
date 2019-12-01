@@ -433,6 +433,9 @@ public class CNotation2SVG
          }
          setW(ww);
 
+         Indent.indent(d+1);
+         System.out.println("ww " + ww);
+
          // search the highest child element and
          // take it's height as the global height
          int hh = 0;
@@ -443,6 +446,8 @@ public class CNotation2SVG
                if (el.getH() > hh)
                {
                   hh = el.getH();
+                  Indent.indent(d+1);
+                  System.out.println("new hh " + hh);
                }
             }
          }
@@ -450,15 +455,23 @@ public class CNotation2SVG
          // hh is now the calculated heigth
          setH(hh);
 
+         Indent.indent(d+1);
+         System.out.println("hh " + hh);
+         
          // search the highest baseline
          int bsl = 0;
          for (SElement el: list)
          {
             if (el.withBaseline())
             {
+               Indent.indent(d+1);
+               System.out.println("el bsl " + el.getBaseline());
+
                if (el.getBaseline() > bsl)
                {
                   bsl = el.getBaseline();
+                  Indent.indent(d+1);
+                  System.out.println("new bsl " + bsl);
                }
             }
          }
@@ -466,12 +479,16 @@ public class CNotation2SVG
          // bsl is now the calculated baseline
          setBaseline(bsl);
          
+         Indent.indent(d+1);
+         System.out.println("bsl " + bsl);
          
          // align all child elements at the calculated baseline
          for (SElement el: list)
          {
             if (el.withBaseline())
             {
+               Indent.indent(d+1);
+               System.out.println("with baseline");
                if (el.getBaseline() < getBaseline())
                {
                   int dy = getBaseline() - el.getBaseline();
@@ -486,6 +503,8 @@ public class CNotation2SVG
             }
             else
             {
+               Indent.indent(d+1);
+               System.out.println("no baseline");
                // this element has no baseline
                el.setH(hh);
             }
@@ -569,6 +588,14 @@ public class CNotation2SVG
          root.add(el);
       }
 
+      /*
+      @Override
+      public int getBaseline()
+      {
+         return root.getBaseline();
+      }
+       */
+
       @Override
       protected void calcWH(int d)
       {
@@ -582,6 +609,7 @@ public class CNotation2SVG
 
          setW(root.getW());
          setH(root.getH());
+         setBaseline(root.getBaseline());
       }
 
       @Override 
@@ -667,6 +695,13 @@ public class CNotation2SVG
          root.setY(hline);
          setBaseline(hline + root.getBaseline());
 
+         Indent.indent(d);
+         System.out.println("Line.calcLayout() hline "  + hline);
+         Indent.indent(d);
+         System.out.println("Line.calcLayout() root baseline "  + root.getBaseline());
+         Indent.indent(d);
+         System.out.println("Line.calcLayout() baseline "  + getBaseline());
+
          setLok(true);
       }
 
@@ -697,6 +732,17 @@ public class CNotation2SVG
    {
       public Bar()
       {
+      }
+
+      // this method is only for testing
+      // it can be omitted
+      @Override 
+      public void calcLayout(int d, Graphics g)
+      {
+         Indent.indent(d);
+         System.out.println("Bar.calcLayout() #"  + getNr());
+
+         super.calcLayout(d + 1, g);
       }
 
       @Override
@@ -1023,7 +1069,7 @@ public class CNotation2SVG
     	JFrame frame= new JFrame("Welcome to CNotation2SVG");
 
     	//Score sc = makeDemo();
-    	String cccc = "|((cc)(cc))|cccc|";
+    	String cccc = "|((cc)(cc))|cccc|(cc)ccc|";
     	Score sc = makeScore(cccc);
     	
     	CNotationPanel panel = new CNotationPanel(sc);
