@@ -366,10 +366,10 @@ public class CNotation2SVG
       }
    }
    
-   static public class Group extends SElement
+   static public abstract class Group extends SElement
    {
       protected ArrayList<SElement> list;
-      
+
       public Group()
       {
          list = new ArrayList<SElement>();
@@ -379,17 +379,6 @@ public class CNotation2SVG
       {
          super(xx, yy);
          list = new ArrayList<SElement>();
-      }
-
-      @Override
-      public void show(int d)
-      {
-         Indent.indent(d);
-         System.out.println("Group #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline());
-         for (SElement el: list)
-         {
-            el.show(d + 1);
-         }
       }
 
       @Override
@@ -408,6 +397,43 @@ public class CNotation2SVG
       }
 
       @Override
+      public void draw(int dx, int dy, Graphics g)
+      {
+         Graphics2D g2 = (Graphics2D) g;
+         
+         //System.out.println("Group.draw() " + (dx + getX()) + " " + (dy + getY()));
+
+         super.draw(dx, dy, g2);
+         for (SElement el: list)
+         {
+            el.draw(dx + getX(), dy + getY(), g2);
+         }
+      }
+   }
+
+   static public class HGroup extends Group
+   {
+      public HGroup()
+      {
+      }
+
+      public HGroup(int xx, int yy)
+      {
+         super(xx, yy);
+      }
+
+      @Override
+      public void show(int d)
+      {
+         Indent.indent(d);
+         System.out.println("HGroup #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline());
+         for (SElement el: list)
+         {
+            el.show(d + 1);
+         }
+      }
+
+      @Override
       protected void calcWH(int d)
       {
          if (isWHok())
@@ -417,7 +443,7 @@ public class CNotation2SVG
          setWHok(true);
 
          Indent.indent(d);
-         System.out.println("Group.calcHW() #" + getNr());
+         System.out.println("HGroup.calcHW() #" + getNr());
          
          for (SElement el: list)
          {
@@ -522,7 +548,7 @@ public class CNotation2SVG
          Graphics2D g2 = (Graphics2D) g;
          
          Indent.indent(d);
-         System.out.println("Group.calcLayout() #" + getNr());
+         System.out.println("HGroup.calcLayout() #" + getNr());
 
          for (SElement el: list)
          {
@@ -537,26 +563,173 @@ public class CNotation2SVG
          for (SElement el: list)
          {
             Indent.indent(d);
-            System.out.println("Group.calcLayout() xx " + xx);
+            System.out.println("HGroup.calcLayout() xx " + xx);
             el.setX(xx);
             xx += el.getW();
          }
 
          setLok(true);
       }
+   }
+   
+   static public class VGroup extends Group
+   {
+      public VGroup()
+      {
+      }
+
+      public VGroup(int xx, int yy)
+      {
+         super(xx, yy);
+      }
 
       @Override
-      public void draw(int dx, int dy, Graphics g)
+      public void show(int d)
       {
-         Graphics2D g2 = (Graphics2D) g;
-         
-         //System.out.println("Group.draw() " + (dx + getX()) + " " + (dy + getY()));
-
-         super.draw(dx, dy, g2);
+         Indent.indent(d);
+         System.out.println("VGroup #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline());
          for (SElement el: list)
          {
-            el.draw(dx + getX(), dy + getY(), g2);
+            el.show(d + 1);
          }
+      }
+
+      @Override
+      protected void calcWH(int d)
+      {
+         if (isWHok())
+         {
+            return;
+         }
+         setWHok(true);
+
+         Indent.indent(d);
+         System.out.println("VGroup.calcHW() #" + getNr());
+         
+         for (SElement el: list)
+         {
+            el.calcWH(d + 1);
+         }
+
+         // sum all the widths
+         // and this value as the global width
+         int ww = 0;
+         for (SElement el: list)
+         {
+            ww += el.getW();
+         }
+         setW(ww);
+
+         Indent.indent(d+1);
+         System.out.println("ww " + ww);
+
+         // search the highest child element and
+         // take it's height as the global height
+         int hh = 0;
+         for (SElement el: list)
+         {
+            if (el.withBaseline())
+            {
+               if (el.getH() > hh)
+               {
+                  hh = el.getH();
+                  Indent.indent(d+1);
+                  System.out.println("new hh " + hh);
+               }
+            }
+         }
+         
+         // hh is now the calculated heigth
+         setH(hh);
+
+         Indent.indent(d+1);
+         System.out.println("hh " + hh);
+         
+         // search the highest baseline
+         int bsl = 0;
+         for (SElement el: list)
+         {
+            if (el.withBaseline())
+            {
+               Indent.indent(d+1);
+               System.out.println("el bsl " + el.getBaseline());
+
+               if (el.getBaseline() > bsl)
+               {
+                  bsl = el.getBaseline();
+                  Indent.indent(d+1);
+                  System.out.println("new bsl " + bsl);
+               }
+            }
+         }
+         
+         // bsl is now the calculated baseline
+         setBaseline(bsl);
+         
+         Indent.indent(d+1);
+         System.out.println("bsl " + bsl);
+         
+         // align all child elements at the calculated baseline
+         for (SElement el: list)
+         {
+            if (el.withBaseline())
+            {
+               Indent.indent(d+1);
+               System.out.println("with baseline");
+               if (el.getBaseline() < getBaseline())
+               {
+                  int dy = getBaseline() - el.getBaseline();
+                  Indent.indent(d+1);
+                  System.out.println("dy " + dy);
+                  Indent.indent(d+1);
+                  System.out.println("y oud   " + el.getY());
+                  el.setY(el.getY() + dy);
+                  Indent.indent(d+1);
+                  System.out.println("y nieuw " + el.getY());
+               }
+            }
+            else
+            {
+               Indent.indent(d+1);
+               System.out.println("no baseline");
+               // this element has no baseline
+               el.setH(hh);
+            }
+         }
+      }
+
+      @Override 
+      public void calcLayout(int d, Graphics g)
+      {
+         if (isLok())
+         {
+            return;
+         }
+
+         Graphics2D g2 = (Graphics2D) g;
+         
+         Indent.indent(d);
+         System.out.println("VGroup.calcLayout() #" + getNr());
+
+         for (SElement el: list)
+         {
+            el.calcLayout(d + 1, g);
+         }
+
+         calcWH(d + 1);
+
+         // position all the child elements
+         int xx = 0;
+         int yy = 0;
+         for (SElement el: list)
+         {
+            Indent.indent(d);
+            System.out.println("VGroup.calcLayout() xx " + xx);
+            el.setX(xx);
+            xx += el.getW();
+         }
+
+         setLok(true);
       }
    }
    
@@ -566,14 +739,11 @@ public class CNotation2SVG
 
       public Container()
       {
-         root = new Group();
       }
 
       public Container(int xx, int yy)
       {
          super(xx, yy);
-         
-         root = new Group();
       }
 
       @Override
@@ -587,14 +757,6 @@ public class CNotation2SVG
       {
          root.add(el);
       }
-
-      /*
-      @Override
-      public int getBaseline()
-      {
-         return root.getBaseline();
-      }
-       */
 
       @Override
       protected void calcWH(int d)
@@ -621,7 +783,7 @@ public class CNotation2SVG
          }
 
          Indent.indent(d);
-         System.out.println("Container.calcLayout() #"  + getNr());
+         System.out.println("HContainer.calcLayout() #"  + getNr());
 
          root.calcLayout(d + 1, g);
          
@@ -641,8 +803,54 @@ public class CNotation2SVG
          root.draw(dx + getX(), dy + getY(), g);
       }
    }
+
+   static public abstract class HContainer extends Container
+   {
+      public HContainer()
+      {
+         root = new HGroup();
+      }
+
+      public HContainer(int xx, int yy)
+      {
+         super(xx, yy);
+         
+         root = new HGroup();
+      }
+
+      @Override
+      protected void calcWH(int d)
+      {
+         super.calcWH(d);
+
+         setBaseline(root.getBaseline());
+      }
+   }
    
-   static public class Line extends Container
+   static public abstract class VContainer extends Container
+   {
+      public VContainer()
+      {
+         root = new VGroup();
+      }
+
+      public VContainer(int xx, int yy)
+      {
+         super(xx, yy);
+         
+         root = new VGroup();
+      }
+
+      @Override
+      protected void calcWH(int d)
+      {
+         super.calcWH(d);
+
+         setBaseline(root.getBaseline());
+      }
+   }
+   
+   static public class Line extends HContainer
    {
       static final int hline = Config.lineheight; // height of the line section
 
@@ -728,7 +936,7 @@ public class CNotation2SVG
       }
    }
    
-   static public class Bar extends Container
+   static public class Bar extends HContainer
    {
       public Bar()
       {
@@ -754,7 +962,7 @@ public class CNotation2SVG
       }
    }
 
-   static public class Voice extends Container
+   static public class Voice extends HContainer
    {
       public Voice()
       {
@@ -785,38 +993,17 @@ public class CNotation2SVG
       }
    }
 
-   static public class Score extends Container
+   static public class Score extends VContainer
    {
-      private SElement root;
-      
-      public Score(SElement rt)
+      public Score()
       {
-         root = rt;
       }
       
       public void show(int d)
       {
          Indent.indent(d);
-         System.out.println("Root");
+         System.out.println("Score #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline() + " " + getW() + "x" + getH());
          root.show(d + 1);
-      }
-
-      public int getW()
-      {
-         return root.getW();
-      }
-
-      public int getH()
-      {
-         return root.getH();
-      }
-
-      public void clearLok()
-      {
-         if (root != null)
-         {
-            root.clearLok();
-         }
       }
 
       @Override 
@@ -848,7 +1035,6 @@ public class CNotation2SVG
          }
       }
    }
-
    
 //  ----------------- Swing -------------------   
    
@@ -916,8 +1102,23 @@ public class CNotation2SVG
          }
       }
       
+      public boolean startsWith(String te)
+      {
+         return text.startsWith(te);
+      }
+        
       public void next() throws ParseException
       {
+         if (text.startsWith("\\score"))
+         {
+            text = text.substring(6);
+         }
+         else
+         if (text.startsWith("\\voice"))
+         {
+            text = text.substring(6);
+         }
+         else
          if (text.length() > 0)
          {
             text = text.substring(1);
@@ -936,7 +1137,7 @@ public class CNotation2SVG
    
    static public class Parser
    {
-      public SElement parse_bar2(Container co, ParseText text) throws ParseException
+      public SElement parse_bar2(HContainer co, ParseText text) throws ParseException
       {
          System.out.println("Parse.parse_bar2() " + text);
          if (!text.empty())
@@ -987,11 +1188,16 @@ public class CNotation2SVG
          return bar;
       }
 
-      public SElement parse_voice2(Container co, ParseText text) throws ParseException
+      public SElement parse_voice2(HContainer co, ParseText text) throws ParseException
       {
          System.out.println("Parse.parse_voice2() " + text);
          if (!text.empty())
          {
+            if (text.get() == '}')
+            {
+               return co;
+            }
+            else
             if (text.get() == '|')
             {
                Barline bline = new Barline();
@@ -1009,18 +1215,101 @@ public class CNotation2SVG
          return co;
       }
       
-      public SElement parse_voice(ParseText text) throws ParseException
+      public Voice parse_voice(ParseText text) throws ParseException
       {
          System.out.println("Parse.parse_voice() " + text);
-         Voice voice = new Voice();
-         parse_voice2(voice, text);
-         return voice;
+         if (text.startsWith("\\voice"))
+         {
+            text.next();
+            if (text.get() == '{')
+            {
+               text.next();
+
+               Voice voice = new Voice();
+               parse_voice2(voice, text);
+               if (text.get() == '}')
+               {
+                  text.next();
+                  return voice;
+               }
+               else
+               {
+                  throw new ParseException("at } expected");
+               }
+            }
+            else
+            {
+               throw new ParseException("at { expected");
+            }
+         }
+         else
+         {
+            throw new ParseException("at \\voice expected");
+         }
+         //return null;
       }
       
+      public Score parse_score2(Score sco, ParseText text) throws ParseException
+      {
+         System.out.println("Parse.parse_score2() " + text);
+         if (!text.empty())
+         {
+            if (text.get() == '}')
+            {
+               return sco;
+            }
+            else
+            if (text.startsWith("\\voice"))
+            {
+               Voice voi = parse_voice(text);
+               sco.add(voi);
+               parse_score2(sco, text);
+            }
+         }
+         return sco;
+      }
+
+      public Score parse_score(ParseText text) throws ParseException
+      {
+         System.out.println("Parse.parse_score() " + text);
+         if (text.startsWith("\\score"))
+         {
+            text.next();
+            if (text.get() == '{')
+            {
+               text.next();
+               
+               Score sc = new Score();
+
+               parse_score2(sc, text);
+               
+               if (text.get() == '}')
+               {
+                  text.next();
+                  
+                  return sc;
+               }
+               else
+               {
+                  throw new ParseException("at } expected");
+               }
+            }
+            else
+            {
+               throw new ParseException("at { expected");
+            }
+         }
+         else
+         {
+            throw new ParseException("at \\score expected");
+         }
+      }
+
       public Score parse(String text) throws ParseException
       {
          System.out.println("Parse.parse() " + text);
-         return new Score(parse_voice(new ParseText(text)));
+         //return new Score(parse_voice(new ParseText(text)));
+         return parse_score(new ParseText(text));
       }
    }
 
@@ -1028,7 +1317,7 @@ public class CNotation2SVG
    
    public Score makeDemo()
    {
-      Group gr = new Group();
+      HGroup gr = new HGroup();
       gr.add(new Note('c'));
 
       Line li = new Line();
@@ -1043,7 +1332,8 @@ public class CNotation2SVG
       li2.add(new Note('f'));
       gr.add(li2);
 
-    	Score sc = new Score(gr);
+    	Score sc = new Score();
+    	sc.add(gr);
     	return sc;
    }
 
@@ -1069,7 +1359,7 @@ public class CNotation2SVG
     	JFrame frame= new JFrame("Welcome to CNotation2SVG");
 
     	//Score sc = makeDemo();
-    	String cccc = "|((cc)(cc))|cccc|(cc)ccc|";
+    	String cccc = "\\score{\\voice{|cc|}\\voice{|c|}}";
     	Score sc = makeScore(cccc);
     	
     	CNotationPanel panel = new CNotationPanel(sc);
