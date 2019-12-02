@@ -33,7 +33,7 @@ public class CNotation2SVG
       static public final int     linemarge  = (int)(0.12 * ptsize);
       
       // barline
-      static public final int     barlinewidth = (int)(0.25 * ptsize);
+      static public final int     barlinewidth = (int)(0.3 * ptsize);
    }
 
    static public class Indent
@@ -185,6 +185,16 @@ public class CNotation2SVG
          baseline = 0;
       }
 
+      public int size()
+      {
+         return 0;
+      }
+
+      public SElement get(int i)
+      {
+         return null;
+      }
+
       abstract protected void calcWH(int d);
       abstract public void calcLayout(int d, Graphics g);
       abstract public void show(int d);
@@ -302,7 +312,7 @@ public class CNotation2SVG
       public void show(int d)
       {
          Indent.indent(d);
-         System.out.println("Barline #" + getNr() + getX() + " " + getY() + " " + getBaseline());
+         System.out.println("Barline #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline() + " " + getW() + "x" + getH());
       }
 
       @Override
@@ -382,6 +392,18 @@ public class CNotation2SVG
       }
 
       @Override
+      public int size()
+      {
+         return list.size();
+      }
+
+      @Override
+      public SElement get(int i)
+      {
+         return list.get(i);
+      }
+
+      @Override
       public void clearLok()
       {
          super.clearLok();
@@ -426,7 +448,7 @@ public class CNotation2SVG
       public void show(int d)
       {
          Indent.indent(d);
-         System.out.println("HGroup #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline());
+         System.out.println("HGroup #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline() + " " + getW() + "x" + getH());
          for (SElement el: list)
          {
             el.show(d + 1);
@@ -587,7 +609,7 @@ public class CNotation2SVG
       public void show(int d)
       {
          Indent.indent(d);
-         System.out.println("VGroup #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline());
+         System.out.println("VGroup #" + getNr() + " " + getX() + " " + getY() + " " + getBaseline() + " " + getW() + "x" + getH());
          for (SElement el: list)
          {
             el.show(d + 1);
@@ -611,91 +633,110 @@ public class CNotation2SVG
             el.calcWH(d + 1);
          }
 
-         // sum all the widths
-         // and this value as the global width
-         int ww = 0;
-         for (SElement el: list)
-         {
-            ww += el.getW();
-         }
-         setW(ww);
-
-         Indent.indent(d+1);
-         System.out.println("ww " + ww);
-
-         // search the highest child element and
-         // take it's height as the global height
+         // sum all the heights
+         // and this value as the global heigth
          int hh = 0;
          for (SElement el: list)
          {
-            if (el.withBaseline())
-            {
-               if (el.getH() > hh)
-               {
-                  hh = el.getH();
-                  Indent.indent(d+1);
-                  System.out.println("new hh " + hh);
-               }
-            }
+            hh += el.getH();
          }
-         
-         // hh is now the calculated heigth
          setH(hh);
 
          Indent.indent(d+1);
          System.out.println("hh " + hh);
-         
-         // search the highest baseline
-         int bsl = 0;
-         for (SElement el: list)
-         {
-            if (el.withBaseline())
-            {
-               Indent.indent(d+1);
-               System.out.println("el bsl " + el.getBaseline());
 
-               if (el.getBaseline() > bsl)
-               {
-                  bsl = el.getBaseline();
-                  Indent.indent(d+1);
-                  System.out.println("new bsl " + bsl);
-               }
-            }
-         }
-         
-         // bsl is now the calculated baseline
-         setBaseline(bsl);
-         
-         Indent.indent(d+1);
-         System.out.println("bsl " + bsl);
-         
-         // align all child elements at the calculated baseline
+         // search the widest child element and
+         // take it's width as the global width
+         int ww = 0;
          for (SElement el: list)
          {
-            if (el.withBaseline())
+            if (el.getW() > ww)
             {
+               ww = el.getW();
                Indent.indent(d+1);
-               System.out.println("with baseline");
-               if (el.getBaseline() < getBaseline())
-               {
-                  int dy = getBaseline() - el.getBaseline();
-                  Indent.indent(d+1);
-                  System.out.println("dy " + dy);
-                  Indent.indent(d+1);
-                  System.out.println("y oud   " + el.getY());
-                  el.setY(el.getY() + dy);
-                  Indent.indent(d+1);
-                  System.out.println("y nieuw " + el.getY());
-               }
-            }
-            else
-            {
-               Indent.indent(d+1);
-               System.out.println("no baseline");
-               // this element has no baseline
-               el.setH(hh);
+               System.out.println("new ww " + ww);
             }
          }
+         
+         // ww is now the calculated width
+         setW(ww);
+
+         Indent.indent(d+1);
+         System.out.println("ww " + ww);
+         
+         // find the highest number of elements all voices
+         int si = 0;
+         for (SElement el: list)
+         {
+            if (el.size() > si)
+            {
+               si = el.size();
+            }
+         }
+         Indent.indent(d+1);
+         System.out.println("si " + si);
+
+
+         int xx = 0;
+         for (int i= 0; i<si; i++)
+         {
+            // set x
+            for (SElement el: list)
+            {
+               if (el instanceof AVoice)
+               {
+                  AVoice av = (AVoice) el;
+                  // get element from voice
+                  SElement ell = av.get(i);
+                  if (ell != null)
+                  {
+                     ell.setX(xx);
+                  }
+               }
+            }
+            
+            // calculate highest width
+            int ww2 = 0;
+            for (SElement el: list)
+            {
+               if (el instanceof AVoice)
+               {
+                  AVoice av = (AVoice) el;
+                  // get element from voice
+                  SElement ell = av.get(i);
+                  if (ell != null && ell.getW() > ww2)
+                  {
+                     ww2 = ell.getW();
+                  }
+               }
+            }
+            Indent.indent(d+1);
+            System.out.println("ww rev " + ww2);
+
+            Indent.indent(d+1);
+            System.out.println("xx a " + xx);
+         
+            xx += ww2;
+         
+            Indent.indent(d+1);
+            System.out.println("xx b " + xx);
+
+            // set width in each bar
+            for (SElement el: list)
+            {
+               if (el instanceof AVoice)
+               {
+                  AVoice av = (AVoice) el;
+                  // get element from voice
+                  SElement ell = av.get(i);
+                  if (ell != null && ell instanceof Bar)
+                  {
+                     ell.setW(ww2);
+                  }
+               }
+            }
+         }
+         setW(xx);
       }
 
       @Override 
@@ -725,8 +766,8 @@ public class CNotation2SVG
          {
             Indent.indent(d);
             System.out.println("VGroup.calcLayout() xx " + xx);
-            el.setX(xx);
-            xx += el.getW();
+            el.setY(yy);
+            yy += el.getH();
          }
 
          setLok(true);
@@ -744,6 +785,18 @@ public class CNotation2SVG
       public Container(int xx, int yy)
       {
          super(xx, yy);
+      }
+
+      @Override
+      public int size()
+      {
+         return root.size();
+      }
+
+      @Override
+      public SElement get(int i)
+      {
+         return root.get(i);
       }
 
       @Override
@@ -962,7 +1015,51 @@ public class CNotation2SVG
       }
    }
 
-   static public class Voice extends HContainer
+
+   static public abstract class AVoice extends HContainer
+   {
+      public int getBarSize()
+      {
+         int n = 0;
+         
+         for (int i=0; i<size(); i++)
+         {
+            SElement el = get(i);
+            if (el instanceof Bar)
+            {
+               n++;
+            }
+         }
+         
+         return n;
+      }
+
+      public SElement getBar(int i)
+      {
+         if (i >= getBarSize())
+         {
+            return null;
+         }
+         
+         int k = 0;
+         for (int j=0; j<size(); j++)
+         {
+            SElement el = get(j);
+            if (el instanceof Bar)
+            {
+               k++;
+               if (k == i)
+               {
+                  return el;
+               }
+            }
+         }
+         
+         return null;
+      }
+   }
+
+   static public class Voice extends AVoice
    {
       public Voice()
       {
@@ -1019,6 +1116,8 @@ public class CNotation2SVG
          System.out.println("Score.calcLayout() #"  + getNr());
 
          root.calcLayout(d + 1, g);
+         setW(root.getW());
+         setH(root.getH());
       }
 
 
@@ -1359,7 +1458,7 @@ public class CNotation2SVG
     	JFrame frame= new JFrame("Welcome to CNotation2SVG");
 
     	//Score sc = makeDemo();
-    	String cccc = "\\score{\\voice{|cc|}\\voice{|c|}}";
+    	String cccc = "\\score{\\voice{|c|}\\voice{|(cc)|}\\voice{|((cc)(cc))|}}";
     	Score sc = makeScore(cccc);
     	
     	CNotationPanel panel = new CNotationPanel(sc);
@@ -1369,7 +1468,6 @@ public class CNotation2SVG
     	frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     	frame.setResizable(false);		
 
-    	/*
       // export to SVG
     	Score sc2 = makeScore(cccc);
       SVGGraphics2D g2 = new SVGGraphics2D(600, 400);
@@ -1378,8 +1476,8 @@ public class CNotation2SVG
       
       // only now w and h are set
       SVGGraphics2D gg2 = new SVGGraphics2D(sc2.getW(), sc2.getH());
-    	sc2.clearLok();
-      sc2.draw(gg2);
+    	Score sc3 = makeScore(cccc);
+      sc3.draw(gg2);
       String svgElement = gg2.getSVGElement();
       //System.out.println(svgElement);
 
@@ -1392,7 +1490,6 @@ public class CNotation2SVG
       catch (IOException e)
       {
       }
-       */
    }   
    
    public static void svgdemo()
